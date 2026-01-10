@@ -1,0 +1,24 @@
+{
+  "name": "synapse-monorepo",
+  "version": "0.0.1",
+  "private": true,
+  "description": "SYNAPSE: Intelligent Lifecycle Manager - Monorepo",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "echo 'Work in progress: Run specific app scripts instead'",
+    "infra:up": "docker compose -f infra/docker-compose.yml --env-file infra/.env up -d",
+    "infra:down": "docker compose -f infra/docker-compose.yml --env-file infra/.env down",
+    "infra:logs": "docker compose -f infra/docker-compose.yml --env-file infra/.env logs -f"
+  },
+  "keywords": [
+    "nest",
+    "react",
+    "monorepo",
+    "n8n"
+  ],
+  "author": "Synapse Team",
+  "license": "UNLICENSED"
+}
