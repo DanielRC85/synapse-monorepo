@@ -1,22 +1,46 @@
 import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { JwtModule } from '@nestjs/jwt';
+import { ConfigModule, ConfigService } from '@nestjs/config';
+
+// Entidades e Infraestructura
 import { UserOrmEntity } from './infrastructure/persistence/entities/user.orm-entity';
 import { UserController } from './infrastructure/http/controllers/user.controller';
-import { RegisterUserUseCase } from './application/use-cases/register-user.use-case';
-import { USER_REPOSITORY_PORT } from './domain/ports/user.repository.port';
 import { TypeOrmUserRepository } from './infrastructure/persistence/repositories/typeorm-user.repository';
-import { PASSWORD_HASHER_PORT } from './domain/ports/password-hasher.port';
 import { BcryptAdapter } from './infrastructure/security/bcrypt.adapter';
+import { JwtAdapter } from './infrastructure/security/jwt.adapter';
+
+// Puertos (Interfaces)
+import { USER_REPOSITORY_PORT } from './domain/ports/user.repository.port';
+import { PASSWORD_HASHER_PORT } from './domain/ports/password-hasher.port';
+import { TOKEN_SERVICE_PORT } from './domain/ports/token-service.port';
+
+// Casos de Uso
+import { RegisterUserUseCase } from './application/use-cases/register-user.use-case';
+import { LoginUserUseCase } from './application/use-cases/login-user.use-case';
 
 @Module({
   imports: [
-    // Registro de la entidad para el repositorio de TypeORM
+    // Conexión con la DB
     TypeOrmModule.forFeature([UserOrmEntity]),
+    
+    // Configuración de JWT usando variables de entorno
+    JwtModule.registerAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: (config: ConfigService) => ({
+        secret: config.get<string>('JWT_SECRET', 'super-secret'),
+        signOptions: { expiresIn: '1h' },
+      }),
+    }),
   ],
   controllers: [UserController],
   providers: [
+    // Casos de Uso
     RegisterUserUseCase,
-    // Vinculación dinámica Puerto -> Adaptador
+    LoginUserUseCase,
+    
+    // Vinculación de Puertos con Adaptadores (Inyección de Dependencias)
     {
       provide: USER_REPOSITORY_PORT,
       useClass: TypeOrmUserRepository,
@@ -25,7 +49,12 @@ import { BcryptAdapter } from './infrastructure/security/bcrypt.adapter';
       provide: PASSWORD_HASHER_PORT,
       useClass: BcryptAdapter,
     },
+    {
+      provide: TOKEN_SERVICE_PORT,
+      useClass: JwtAdapter,
+    },
   ],
-  exports: [RegisterUserUseCase],
+  // Exportamos los casos de uso por si otros módulos necesitan validar usuarios
+  exports: [RegisterUserUseCase, LoginUserUseCase],
 })
 export class IamModule {}
