@@ -1,3 +1,3 @@
 # SYNAPSE: Intelligent Lifecycle Manager 
 Plataforma SaaS Hibrida. 
-Desarrollado bajo Metodologia Sofka. 
+Desarrollado bajo Metodología de Desarrollo de Software Asistido por Inteligencia Artificial. 
