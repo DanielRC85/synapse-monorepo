@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { IamModule } from './modules/iam/iam.module'; // Importamos el nuevo módulo
+import { ChannelsModule } from './modules/channels/channels.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { IamModule } from './modules/iam/iam.module'; // Importamos el nuevo mó
 
     // 3. Módulos de Dominio (Funcionalidades)
     IamModule, 
+    ChannelsModule
   ],
   controllers: [],
   providers: [],
