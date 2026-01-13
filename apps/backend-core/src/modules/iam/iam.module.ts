@@ -54,7 +54,11 @@ import { LoginUserUseCase } from './application/use-cases/login-user.use-case';
       useClass: JwtAdapter,
     },
   ],
-  // Exportamos los casos de uso por si otros módulos necesitan validar usuarios
-  exports: [RegisterUserUseCase, LoginUserUseCase],
+  // Exportamos los puertos y casos de uso necesarios para otros módulos
+  exports: [
+    RegisterUserUseCase, 
+    LoginUserUseCase,
+    TOKEN_SERVICE_PORT // 👈 ¡AGREGADO! Esto permite que ChannelsModule use AuthGuard
+  ],
 })
 export class IamModule {}

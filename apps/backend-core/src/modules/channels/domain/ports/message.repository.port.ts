@@ -11,6 +11,12 @@ export interface MessageRepositoryPort {
    * Vital para evitar procesar duplicados (Idempotencia).
    */
   findByExternalId(externalId: string): Promise<Message | null>;
+
+  /**
+   * 👇 ESTA ES LA LÍNEA QUE FALTABA
+   * Busca todos los mensajes de un Tenant ordenados por fecha.
+   */
+  findByTenant(tenantId: string): Promise<Message[]>;
 }
 
 // Token para Inyección de Dependencias

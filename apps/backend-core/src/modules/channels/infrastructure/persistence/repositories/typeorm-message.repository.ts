@@ -29,6 +29,20 @@ export class TypeOrmMessageRepository implements MessageRepositoryPort {
     return this.toDomain(ormEntity);
   }
 
+  /**
+   * 👇 NUEVO MÉTODO: Busca mensajes por Tenant para el Frontend
+   * Ordenados del más reciente al más antiguo.
+   */
+  async findByTenant(tenantId: string): Promise<Message[]> {
+    const ormEntities = await this.repository.find({
+      where: { tenantId },
+      order: { timestamp: 'DESC' }, // Los nuevos arriba
+      take: 50, // Límite de seguridad para no traer millones de registros
+    });
+
+    return ormEntities.map((entity) => this.toDomain(entity));
+  }
+
   // --- PRIVATE MAPPERS (Data Mapper Pattern) ---
 
   private toPersistence(domainEntity: Message): MessageOrmEntity {
@@ -40,7 +54,6 @@ export class TypeOrmMessageRepository implements MessageRepositoryPort {
     ormEntity.timestamp = domainEntity.timestamp;
     ormEntity.externalId = domainEntity.externalId;
     ormEntity.tenantId = domainEntity.tenantId;
-    // createdAt es gestionado por la DB por defecto, o podría mapearse si existiera en el dominio base
     return ormEntity;
   }
 
