@@ -1,0 +1,91 @@
+{
+  "meta": {
+    "instanceId": "synapse_lifecycle_manager_local"
+  },
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "whatsapp-inbound",
+        "options": {}
+      },
+      "id": "webhook-node-uuid",
+      "name": "WhatsApp Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        460,
+        340
+      ],
+      "webhookId": "whatsapp-inbound-hook"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Normalización de Payload: WhatsApp -> Synapse DTO\n// Documentación Meta: entry[0].changes[0].value.messages[0]\n\nconst body = \$input.all()[0].json.body;\n\n// Navegación segura para evitar crash si el payload es de estado (sent, delivered)\nconst change = body.entry?.[0]?.changes?.[0]?.value;\nconst message = change?.messages?.[0];\n\nif (!message) {\n  // Si no es un mensaje (ej: actualización de estado), retornamos vacío o filtramos\n  return [];\n}\n\n// Mapeo al DTO de Backend\nreturn {\n  sender: message.from,\n  // Si es texto usa text.body, si no, define un placeholder\n  content: message.type === 'text' ? message.text.body : `[Media: ${message.type}]`,\n  type: message.type === 'text' ? 'text' : 'image', // Simplificado para el ejemplo\n  timestamp: parseInt(message.timestamp),\n  externalId: message.id,\n  // IMPORTANTE: Aquí simulamos el Tenant. En prod esto vendría de una config o DB.\n  tenantId: \"b2f3e84a-9c1d-4e5f-9a2b-8c7d6e5f4a3b\"\n};"
+      },
+      "id": "transform-node-uuid",
+      "name": "Transform to DTO",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        680,
+        340
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/webhooks/whatsapp",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-synapse-secret",
+              "value": "synapse_ultra_secret_key_2026"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ \$json }}",
+        "options": {}
+      },
+      "id": "http-backend-uuid",
+      "name": "Send to Backend",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.1,
+      "position": [
+        900,
+        340
+      ]
+    }
+  ],
+  "connections": {
+    "WhatsApp Webhook": {
+      "main": [
+        [
+          {
+            "node": "Transform to DTO",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Transform to DTO": {
+      "main": [
+        [
+          {
+            "node": "Send to Backend",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
