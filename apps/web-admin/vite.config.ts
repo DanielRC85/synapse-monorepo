@@ -12,12 +12,23 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': {
-        target: 'http://localhost:3000', // Apunta a tu NestJS local
+      '/api': { // Asegúrate de que tu Frontend llame a /api/...
+        target: 'http://127.0.0.1:3000', // <--- ¡AQUÍ ESTÁ EL CAMBIO! (Antes decía localhost)
         changeOrigin: true,
         secure: false,
-        rewrite: (path) => path.replace(/^\/api/, ''), // Remueve /api al enviar al backend
+        rewrite: (path) => path.replace(/^\/api/, ''),
       },
+      // ⚠️ TRUCO ADICIONAL: Si tu frontend llama directo a /channels (sin /api), agrega esto:
+      '/channels': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+        secure: false,
+      },
+      '/webhook': {
+         target: 'http://127.0.0.1:3000',
+         changeOrigin: true,
+         secure: false,
+      }
     },
   },
 })
