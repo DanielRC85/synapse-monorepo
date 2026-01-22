@@ -8,18 +8,19 @@ datasource db {
 }
 
 model Message {
-  id        String   @id
-  content   String
-  sender    String
-  type      String   @default("text")
-  timestamp DateTime @default(now())
-  direction String   @default("outbound")
-  tenantId  String
-  Tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  id         String   @id @default(uuid())
+  externalId String   @unique // Identificador de Meta: Garantiza idempotencia a nivel DB
+  content    String   // Contenido textual del mensaje
+  sender     String   // Número de teléfono o identificador del remitente
+  type       String   @default("text")
+  timestamp  DateTime @default(now())
+  direction  String   @default("outbound") // 'inbound' o 'outbound'
+  tenantId   String
+  Tenant     Tenant   @relation(fields: [tenantId], references: [id])
 }
 
 model Tenant {
-  id        String    @id
+  id        String    @id @default(uuid())
   name      String
   createdAt DateTime  @default(now())
   Message   Message[]
@@ -27,9 +28,9 @@ model Tenant {
 }
 
 model User {
-  id        String   @id
+  id        String   @id @default(uuid())
   email     String   @unique
-  password  String
+  password  String   // Almacenada siempre con hash (Bcrypt)
   fullName  String?
   role      String   @default("user")
   createdAt DateTime @default(now())

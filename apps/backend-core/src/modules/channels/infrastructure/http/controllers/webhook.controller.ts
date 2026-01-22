@@ -12,6 +12,10 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { ProcessInboundMessageUseCase } from '../../../application/use-cases/process-inbound-message.use-case';
 
+/**
+ * Controlador encargado de gestionar la comunicación bidireccional con Meta.
+ * Actúa como el punto de entrada (Inbound) para los eventos de WhatsApp Cloud API.
+ */
 @Controller('channels/messages')
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
@@ -22,8 +26,8 @@ export class WebhookController {
   ) {}
 
   /**
-   * ✅ 1. VERIFICACIÓN DEL WEBHOOK
-   * Meta llama a este endpoint (GET) para confirmar que el servidor es nuestro.
+   * Endpoint de Verificación (Handshake).
+   * Meta realiza una petición GET para validar la autenticidad del servidor mediante un Token.
    */
   @Get()
   verifyWebhook(
@@ -31,48 +35,48 @@ export class WebhookController {
     @Query('hub.verify_token') token: string,
     @Query('hub.challenge') challenge: string,
   ) {
-    // 1. Extraer secreto de forma segura vía ConfigService
+    // Recuperamos el secreto desde la configuración global (Inyectado desde .env)
     const verifyToken = this.configService.get<string>('META_WEBHOOK_VERIFY_TOKEN');
 
-    // 2. Validación de seguridad defensiva
+    // Validación defensiva para asegurar que el servidor esté correctamente configurado
     if (!verifyToken) {
-      this.logger.error('❌ Error Crítico: META_WEBHOOK_VERIFY_TOKEN no está definido en las variables de entorno.');
-      throw new ForbiddenException('Error de configuración del servidor');
+      this.logger.error('Error de Seguridad: El token de verificación no está definido en el entorno.');
+      throw new ForbiddenException('Configuración de seguridad incompleta en el servidor.');
     }
 
-    // 3. Validación del handshake de Meta
+    // Validación del handshake oficial de Meta
     if (mode === 'subscribe' && token === verifyToken) {
-      this.logger.log('✅ Conexión con Meta verificada exitosamente.');
-      // NestJS maneja el retorno de string automáticamente con status 200
+      this.logger.log('Webhook verificado exitosamente. Conexión establecida con Meta.');
       return challenge;
     }
 
-    // 4. Rechazo de intrusos
-    this.logger.warn(`⚠️ Intento de verificación fallido. Token recibido: ${token}`);
-    throw new ForbiddenException('Token de verificación inválido');
+    // Registro de intentos fallidos para auditoría de seguridad
+    this.logger.warn(`Intento de conexión no autorizado. Token recibido: ${token}`);
+    throw new ForbiddenException('El token de verificación proporcionado es inválido.');
   }
 
   /**
-   * 📩 2. RECEPCIÓN DE MENSAJES
-   * Meta envía los mensajes de WhatsApp a este endpoint (POST).
+   * Endpoint de Recepción de Eventos (Callback).
+   * Meta envía los mensajes y cambios de estado de WhatsApp mediante peticiones POST.
    */
   @Post()
-  @HttpCode(HttpStatus.OK) // Forzamos 200 OK siempre para que Meta no reintente en bucle si fallamos
+  @HttpCode(HttpStatus.OK) // Forzamos 200 OK para evitar reintentos infinitos por parte de Meta
   async handleIncomingMessage(@Body() payload: any) {
-    // Log limpio para trazabilidad
-    this.logger.debug('📩 Payload de Webhook recibido');
+    // Registro de traza para monitoreo de actividad
+    this.logger.debug('Evento de Webhook recibido desde Meta.');
 
     try {
-      // Delegamos la lógica al Caso de Uso (Clean Architecture)
+      // Delegación de la lógica de negocio al Caso de Uso correspondiente (Arquitectura Hexagonal)
       await this.processUseCase.execute(payload);
       
-      this.logger.log('✅ Mensaje procesado y enviado al pipeline.');
+      this.logger.log('Notificación procesada y delegada al pipeline de mensajes.');
     } catch (error) {
-      // Capturamos el error pero NO dejamos que explote la respuesta HTTP a Meta
-      this.logger.error(`❌ Error procesando mensaje entrante: ${error.message}`, error.stack);
-      // Nota: Aún devolvemos 200 a Meta para confirmar recepción, el error es nuestro problema interno.
+      // Capturamos el error para registro interno sin interrumpir la respuesta hacia Meta
+      // Esto evita bloqueos en la cuenta por fallos persistentes en el procesamiento
+      this.logger.error(`Fallo en el procesamiento interno del mensaje: ${error.message}`, error.stack);
     }
 
+    // Siempre retornamos confirmación de recepción a Meta
     return { status: 'received' };
   }
 }
