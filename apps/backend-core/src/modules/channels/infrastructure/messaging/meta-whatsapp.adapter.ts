@@ -2,6 +2,8 @@ import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { firstValueFrom } from 'rxjs';
+import { AxiosError } from 'axios';
+// 👇 Importamos desde el archivo que acabamos de crear (Archivo A)
 import { 
   OutboundMessagingPort, 
   OutboundMessagePayload, 
@@ -14,15 +16,17 @@ export class MetaWhatsAppAdapter implements OutboundMessagingPort {
   private readonly apiUrl: string;
   private readonly apiToken: string;
   private readonly phoneId: string;
+  private readonly GRAPH_API_VERSION = 'v21.0';
 
   constructor(
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
   ) {
-    // Asegúrate de que estas variables estén en tu .env
-    this.apiToken = this.configService.getOrThrow<string>('META_API_TOKEN');
-    this.phoneId = this.configService.getOrThrow<string>('META_PHONE_ID');
-    this.apiUrl = `https://graph.facebook.com/v18.0/${this.phoneId}/messages`;
+    this.apiToken = this.configService.getOrThrow<string>('META_ACCESS_TOKEN');
+    this.phoneId = this.configService.getOrThrow<string>('META_PHONE_NUMBER_ID');
+    this.apiUrl = `https://graph.facebook.com/${this.GRAPH_API_VERSION}/${this.phoneId}/messages`;
+    
+    this.logger.log(`Meta Adapter initialized. Phone ID: ${this.phoneId}`);
   }
 
   async send(payload: OutboundMessagePayload): Promise<OutboundMessageResponse> {
@@ -34,6 +38,8 @@ export class MetaWhatsAppAdapter implements OutboundMessagingPort {
         text: { body: payload.content },
       };
 
+      this.logger.debug(`Sending message to: ${payload.recipient}`);
+
       const { data } = await firstValueFrom(
         this.httpService.post(this.apiUrl, body, {
           headers: {
@@ -43,12 +49,28 @@ export class MetaWhatsAppAdapter implements OutboundMessagingPort {
         }),
       );
 
+      const metaMessageId = data.messages?.[0]?.id;
+      this.logger.log(`Message sent. Meta ID: ${metaMessageId}`);
+
       return {
-        providerMessageId: data.messages[0].id,
+        providerMessageId: metaMessageId,
       };
+
     } catch (error) {
-      this.logger.error(`Error Meta API: ${JSON.stringify(error?.response?.data || error.message)}`);
-      throw new InternalServerErrorException('Error al enviar mensaje a WhatsApp');
+      this.handleAxiosError(error);
     }
+  }
+
+  private handleAxiosError(error: any): never {
+    const axiosError = error as AxiosError;
+    const metaError = axiosError.response?.data as any;
+    const errorMessage = metaError?.error?.message || axiosError.message;
+
+    this.logger.error(
+      `Meta API Failure: ${errorMessage}`,
+      JSON.stringify(metaError || error.message)
+    );
+    
+    throw new InternalServerErrorException(`WhatsApp sending failed: ${errorMessage}`);
   }
 }

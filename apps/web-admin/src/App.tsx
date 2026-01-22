@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
+import { LayoutDashboard, LogOut, MessageSquare } from 'lucide-react';
+
+// Asegúrate de tener estos archivos creados en sus carpetas:
 import { useAuthStore } from './stores/auth.store';
 import { useChat } from './hooks/useChat';
 import { ChatList } from './components/domain/chat/ChatList';
-import { LayoutDashboard, LogOut, MessageSquare } from 'lucide-react';
 
 function App() {
   const { token, setAuth, logout, user } = useAuthStore();
@@ -13,11 +15,13 @@ function App() {
   }
 
   // 2. SI HAY TOKEN -> PANTALLA DE CHAT
+  // Usamos el tenantId del usuario o un string vacío para evitar errores
   return <DashboardContent tenantId={user?.tenantId || ''} onLogout={logout} />;
 }
 
 // --- SUB-COMPONENTE: DASHBOARD PRINCIPAL ---
 function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: () => void }) {
+  // Aquí usamos el hook que conecta con el servicio
   const { messages, isLoading, isError } = useChat(tenantId);
 
   return (
@@ -54,7 +58,8 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
               <LayoutDashboard className="w-5 h-5 text-gray-400 md:hidden" />
               Torre de Control
             </h1>
-            <p className="text-xs text-gray-400 mt-1 font-mono">Tenant: {tenantId.split('-')[0]}...</p>
+            {/* Mostramos el Tenant ID para depuración */}
+            <p className="text-xs text-gray-400 mt-1 font-mono">Tenant: {tenantId ? tenantId.split('-')[0] : '...'}...</p>
           </div>
           <div className="flex items-center gap-4">
              <button onClick={onLogout} className="md:hidden text-gray-500 hover:text-red-500">
@@ -69,6 +74,7 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
 
         {/* Chat Container */}
         <div className="flex-1 flex flex-col relative overflow-hidden">
+          {/* Pasamos los mensajes al componente de lista */}
           <ChatList messages={messages} isLoading={isLoading} isError={isError} />
           
           {/* Input Area (Deshabilitado visualmente por ahora) */}
@@ -103,6 +109,7 @@ function LoginScreen({ onLoginSuccess }: { onLoginSuccess: (t: string, u: any) =
     setError('');
     
     try {
+      // ⚠️ Asegúrate de que tu backend tenga el módulo IAM escuchando aquí
       const res = await fetch('http://localhost:3000/iam/login', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},

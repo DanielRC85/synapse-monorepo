@@ -1,30 +1,41 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common'; // 👈 Importante
+import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
+  // Creamos un logger para ver mensajes claros en la consola negra
+  const logger = new Logger('Bootstrap');
+  
   const app = await NestFactory.create(AppModule);
 
-  // 1. ACTIVAR VALIDACIONES (El "Portero" de datos)
-  // Esto hace que @IsNotEmpty y @IsUUID funcionen. 
-  // Si envías datos mal, te dará un error claro en lugar de romper la base de datos.
+  // =================================================================
+  // 1. CONFIGURACIÓN DE SEGURIDAD (CORREGIDA PARA WEBHOOKS)
+  // =================================================================
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true, // Elimina datos que no estén en el DTO (seguridad)
-      forbidNonWhitelisted: true, // Tira error si envían basura extra
-      transform: true, // Convierte los tipos de datos automáticamente
+      whitelist: true,            // Limpia los datos
+      transform: true,            // Convierte tipos (ej: texto a numero)
+      forbidNonWhitelisted: false, // 👈 ¡CLAVE! Dejamos pasar datos extra de Meta sin lanzar error
     }),
   );
 
-  // 2. ACTIVAR CORS (El "Puente" para el Frontend)
-  // Sin esto, tu React App (puerto 5173) no podrá hablar con el Backend (puerto 3000)
+  // =================================================================
+  // 2. CONFIGURACIÓN DE CORS (PARA QUE TU FRONTEND PUEDA ENTRAR)
+  // =================================================================
   app.enableCors({
-    origin: true, // O pon 'http://localhost:5173' para ser más estricto
-    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE',
+    origin: true, // Permite que React (localhost:5173) se conecte
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
 
-  await app.listen(process.env.PORT ?? 3000);
-  console.log(`🚀 Backend corriendo en: ${await app.getUrl()}`);
+  // =================================================================
+  // 3. INICIO DEL SERVIDOR
+  // =================================================================
+  const port = process.env.PORT ?? 3000;
+  
+  await app.listen(port);
+  
+  logger.log(`🚀 Servidor Backend corriendo en: http://localhost:${port}`);
+  logger.log(`🔌 API lista para recibir peticiones (Webhooks abiertos)`);
 }
 bootstrap();

@@ -3,12 +3,18 @@ export type MessageDirection = 'inbound' | 'outbound';
 
 export interface Message {
   id: string;
-  content: string;
-  sender: string;
+  content: string; // Prisma: content
+  sender: string;  // Prisma: sender
   type: MessageType;
-  timestamp: string; // Recibimos ISO string o Timestamp del backend
+  
+  // ⚠️ CORRECCIÓN CRUCIAL:
+  // Prisma devuelve 'createdAt', no 'timestamp'.
+  // Agregamos ambas para evitar errores si el backend cambia.
+  createdAt: string; 
+  timestamp?: string; 
+
   direction: MessageDirection;
-  tenantId?: string; // Opcional, útil para contexto
+  tenantId?: string;
 }
 
 export interface ChatState {

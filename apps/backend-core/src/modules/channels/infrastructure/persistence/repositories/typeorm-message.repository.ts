@@ -13,11 +13,21 @@ export class TypeOrmMessageRepository implements MessageRepositoryPort {
   ) {}
 
   /**
-   * Persiste el mensaje en base de datos.
+   * 👇 MÉTODO MODIFICADO CON LOGS PARA VER LA VERDAD
    */
   async save(message: Message): Promise<void> {
     const ormEntity = this.toPersistence(message);
+
+    // 🕵️‍♂️ EL CHISMOSO: Esto imprimirá en tu terminal negra qué está pasando
+    console.log("\n==============================================");
+    console.log("🚨 [DEBUG] INTENTANDO GUARDAR EN BASE DE DATOS");
+    console.log("📩 Contenido:", ormEntity.content);
+    console.log("🔑 Tenant ID (Lo importante):", ormEntity.tenantId); 
+    console.log("==============================================\n");
+
     await this.repository.save(ormEntity);
+    
+    console.log("✅ [DEBUG] ¡TypeORM dice que guardó sin errores!");
   }
 
   /**
@@ -30,14 +40,12 @@ export class TypeOrmMessageRepository implements MessageRepositoryPort {
   }
 
   /**
-   * 👇 NUEVO MÉTODO: Busca mensajes por Tenant para el Frontend
-   * Ordenados del más reciente al más antiguo.
+   * Busca mensajes de un Tenant ordenados cronológicamente.
    */
   async findByTenant(tenantId: string): Promise<Message[]> {
     const ormEntities = await this.repository.find({
       where: { tenantId },
-      order: { timestamp: 'DESC' }, // Los nuevos arriba
-      take: 50, // Límite de seguridad para no traer millones de registros
+      order: { timestamp: 'ASC' }, 
     });
 
     return ormEntities.map((entity) => this.toDomain(entity));

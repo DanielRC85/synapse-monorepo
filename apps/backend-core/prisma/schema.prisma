@@ -1,5 +1,3 @@
-// apps/backend-core/prisma/schema.prisma
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,34 +7,32 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Message {
+  id        String   @id
+  content   String
+  sender    String
+  type      String   @default("text")
+  timestamp DateTime @default(now())
+  direction String   @default("outbound")
+  tenantId  String
+  Tenant    Tenant   @relation(fields: [tenantId], references: [id])
+}
+
 model Tenant {
-  id        String    @id @default(uuid())
+  id        String    @id
   name      String
   createdAt DateTime  @default(now())
-  users     User[]
-  messages  Message[]
+  Message   Message[]
+  User      User[]
 }
 
 model User {
-  id        String   @id @default(uuid())
+  id        String   @id
   email     String   @unique
   password  String
   fullName  String?
-  role      String   @default("user") // 'admin' | 'user'
+  role      String   @default("user")
   createdAt DateTime @default(now())
-  
   tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
-}
-
-model Message {
-  id        String   @id @default(uuid())
-  content   String
-  sender    String   // "user" o "bot" o el nombre
-  type      String   @default("text") // text, image, document
-  timestamp DateTime @default(now())
-  direction String   @default("outbound") // inbound, outbound
-  
-  tenantId  String
-  tenant    Tenant   @relation(fields: [tenantId], references: [id])
+  Tenant    Tenant   @relation(fields: [tenantId], references: [id])
 }

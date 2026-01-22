@@ -1,13 +1,26 @@
 import api from '../lib/api';
-import type { Message } from '../types/chat'; // Corrección TS1484
+// Usamos 'import type' para asegurar que Vite no intente empaquetar interfaces
+import type { Message } from '../types/chat';
+
+export interface SendMessagePayload {
+  recipient: string;
+  content: string;
+  tenantId: string;
+}
 
 export const chatService = {
-  /**
-   * Obtiene el historial de mensajes.
-   * El backend infiere el tenantId desde el Token, por eso _tenantId no se usa en la URL.
-   */
-  getMessages: async (_tenantId: string): Promise<Message[]> => { // Corrección TS6133 (guion bajo)
-    const { data } = await api.get<Message[]>('/channels/messages');
+  // 1. OBTENER HISTORIAL
+  // Llama a: GET http://localhost:3000/channels/messages/history?tenantId=...
+  getMessages: async (tenantId: string): Promise<Message[]> => {
+    const { data } = await api.get<Message[]>('/channels/messages/history', {
+        params: { tenantId } 
+    });
     return data;
+  },
+
+  // 2. ENVIAR MENSAJE
+  // Llama a: POST http://localhost:3000/channels/messages/send
+  sendMessage: async (payload: SendMessagePayload): Promise<void> => {
+    await api.post('/channels/messages/send', payload);
   },
 };
