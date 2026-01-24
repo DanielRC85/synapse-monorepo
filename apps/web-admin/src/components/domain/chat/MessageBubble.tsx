@@ -1,7 +1,6 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { clsx } from 'clsx';
-// 👇 AQUÍ ESTÁ EL CAMBIO: Agregamos 'type'
 import type { Message } from '../../../types/chat';
 import { CheckCheck, FileText, Image as ImageIcon, Mic } from 'lucide-react';
 
@@ -11,6 +10,17 @@ interface MessageBubbleProps {
 
 export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
   const isOutbound = message.direction === 'outbound';
+
+  // Lógica de seguridad para la fecha
+  const displayDate = () => {
+    try {
+      // Priorizamos createdAt, si no existe usamos timestamp, si no, fecha actual
+      const dateString = message.createdAt || message.timestamp || new Date().toISOString();
+      return format(new Date(dateString), 'HH:mm');
+    } catch (e) {
+      return '';
+    }
+  };
 
   const renderContent = () => {
     switch (message.type) {
@@ -36,6 +46,7 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
           </div>
         );
       default:
+        // Renderizado de texto normal
         return <p className="whitespace-pre-wrap leading-relaxed">{message.content}</p>;
     }
   };
@@ -69,11 +80,8 @@ export const MessageBubble: React.FC<MessageBubbleProps> = ({ message }) => {
             isOutbound ? 'text-blue-100' : 'text-gray-400'
           )}
         >
-          <span>
-            {message.timestamp
-              ? format(new Date(message.timestamp), 'HH:mm')
-              : ''}
-          </span>
+          {/* 👇 AQUÍ ESTABA EL CAMBIO CLAVE */}
+          <span>{displayDate()}</span>
           {isOutbound && <CheckCheck className="w-3 h-3" />}
         </div>
       </div>

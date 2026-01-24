@@ -1,10 +1,15 @@
 import React, { useState } from 'react';
-import { LayoutDashboard, LogOut, MessageSquare } from 'lucide-react';
+import { LayoutDashboard, LogOut, MessageSquare, Send, Phone } from 'lucide-react';
 
-// Asegúrate de tener estos archivos creados en sus carpetas:
+// Asegúrate de tener estos archivos creados:
 import { useAuthStore } from './stores/auth.store';
 import { useChat } from './hooks/useChat';
 import { ChatList } from './components/domain/chat/ChatList';
+
+// 👇👇👇 CONFIGURACIÓN CRÍTICA 👇👇👇
+// Este es el número que funcionó en tus logs. 
+// Si quieres hablar con otro, cámbialo aquí.
+const ACTIVE_RECIPIENT_NUMBER = '573337445361'; 
 
 function App() {
   const { token, setAuth, logout, user } = useAuthStore();
@@ -15,19 +20,47 @@ function App() {
   }
 
   // 2. SI HAY TOKEN -> PANTALLA DE CHAT
-  // Usamos el tenantId del usuario o un string vacío para evitar errores
   return <DashboardContent tenantId={user?.tenantId || ''} onLogout={logout} />;
 }
 
 // --- SUB-COMPONENTE: DASHBOARD PRINCIPAL ---
 function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: () => void }) {
-  // Aquí usamos el hook que conecta con el servicio
-  const { messages, isLoading, isError } = useChat(tenantId);
+  // 1. Extraemos todo del hook
+  const { messages, isLoading, isError, sendMessage } = useChat(tenantId);
+  
+  // 2. Estado local del input
+  const [inputValue, setInputValue] = useState('');
+  const [isSending, setIsSending] = useState(false);
+
+  // 3. Función para enviar el mensaje (CORREGIDA ✅)
+  const handleSend = async () => {
+    if (!inputValue.trim()) return;
+
+    setIsSending(true);
+    try {
+      if (sendMessage) {
+        // 👇 AQUÍ ESTÁ LA MAGIA: Pasamos el texto Y el número destino
+        await sendMessage(inputValue, ACTIVE_RECIPIENT_NUMBER);
+        setInputValue(''); // Limpiar caja
+      }
+    } catch (error) {
+      console.error("Error al enviar:", error);
+    } finally {
+      setIsSending(false);
+    }
+  };
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  };
 
   return (
     <div className="flex h-screen bg-gray-100 font-sans text-gray-900 overflow-hidden">
       
-      {/* Sidebar (Solo visible en escritorio) */}
+      {/* Sidebar (Escritorio) */}
       <aside className="w-64 bg-slate-900 text-white flex-col hidden md:flex">
         <div className="p-6 border-b border-slate-800 flex items-center gap-3">
           <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center font-bold shadow-lg shadow-blue-900/50">
@@ -38,7 +71,7 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
         <nav className="flex-1 p-4">
           <button className="flex items-center gap-3 w-full px-4 py-3 bg-slate-800 text-blue-400 rounded-lg text-sm font-medium border border-slate-700">
             <MessageSquare className="w-4 h-4" />
-            Live Chat
+            Chat Activo
           </button>
         </nav>
         <div className="p-4 border-t border-slate-800">
@@ -58,36 +91,58 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
               <LayoutDashboard className="w-5 h-5 text-gray-400 md:hidden" />
               Torre de Control
             </h1>
-            {/* Mostramos el Tenant ID para depuración */}
-            <p className="text-xs text-gray-400 mt-1 font-mono">Tenant: {tenantId ? tenantId.split('-')[0] : '...'}...</p>
+            <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs text-gray-400 font-mono">Tenant: {tenantId.slice(0, 8)}...</span>
+                <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full flex items-center gap-1">
+                    <Phone className="w-3 h-3" />
+                    Conectado con: <strong>{ACTIVE_RECIPIENT_NUMBER}</strong>
+                </span>
+            </div>
           </div>
           <div className="flex items-center gap-4">
-             <button onClick={onLogout} className="md:hidden text-gray-500 hover:text-red-500">
-               <LogOut size={20}/>
-             </button>
+              <button onClick={onLogout} className="md:hidden text-gray-500 hover:text-red-500">
+                <LogOut size={20}/>
+              </button>
             <span className="flex items-center gap-1.5 px-3 py-1 bg-green-50 text-green-700 rounded-full text-xs font-medium border border-green-100">
               <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-              En línea
+              Sistema Operativo
             </span>
           </div>
         </header>
 
         {/* Chat Container */}
         <div className="flex-1 flex flex-col relative overflow-hidden">
-          {/* Pasamos los mensajes al componente de lista */}
           <ChatList messages={messages} isLoading={isLoading} isError={isError} />
           
-          {/* Input Area (Deshabilitado visualmente por ahora) */}
+          {/* ÁREA DE INPUT */}
           <div className="p-4 bg-[#f0f2f5] border-t border-gray-200">
-            <div className="max-w-4xl mx-auto flex gap-2 opacity-60 cursor-not-allowed">
+            <div className="max-w-4xl mx-auto flex gap-2">
               <input 
-                disabled 
-                placeholder="Escribe un mensaje..." 
-                className="flex-1 px-4 py-3 rounded-lg border border-gray-300 bg-white focus:outline-none text-sm"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                onKeyDown={handleKeyPress}
+                disabled={isSending}
+                placeholder={`Escribir a ${ACTIVE_RECIPIENT_NUMBER}...`} 
+                className="flex-1 px-4 py-3 rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm disabled:opacity-50"
               />
-              <button disabled className="p-3 bg-blue-600 rounded-lg text-white">
-                <MessageSquare className="w-5 h-5" />
+              <button 
+                onClick={handleSend}
+                disabled={!inputValue.trim() || isSending}
+                className={`p-3 rounded-lg text-white transition-all flex items-center justify-center min-w-[3rem] ${
+                    !inputValue.trim() || isSending 
+                    ? 'bg-blue-300 cursor-not-allowed' 
+                    : 'bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-600/30'
+                }`}
+              >
+                {isSending ? (
+                  <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                ) : (
+                  <Send className="w-5 h-5" />
+                )}
               </button>
+            </div>
+            <div className="text-center mt-2">
+               <span className="text-[10px] text-gray-400">Presiona Enter para enviar</span>
             </div>
           </div>
         </div>
@@ -109,8 +164,7 @@ function LoginScreen({ onLoginSuccess }: { onLoginSuccess: (t: string, u: any) =
     setError('');
     
     try {
-      // ⚠️ Asegúrate de que tu backend tenga el módulo IAM escuchando aquí
-      const res = await fetch('http://localhost:3000/iam/login', {
+      const res = await fetch('/api/iam/login', { // Usamos el proxy /api
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify({ email, password })
