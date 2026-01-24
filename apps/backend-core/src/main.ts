@@ -3,39 +3,48 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  // Creamos un logger para ver mensajes claros en la consola negra
+  // Instancia de Logger para trazas limpias en la terminal
   const logger = new Logger('Bootstrap');
   
   const app = await NestFactory.create(AppModule);
 
   // =================================================================
-  // 1. CONFIGURACIÓN DE SEGURIDAD (CORREGIDA PARA WEBHOOKS)
+  // 1. CONFIGURACIÓN DE VALIDACIÓN (CRÍTICO PARA META WEBHOOKS)
   // =================================================================
   app.useGlobalPipes(
     new ValidationPipe({
-      whitelist: true,            // Limpia los datos
-      transform: true,            // Convierte tipos (ej: texto a numero)
-      forbidNonWhitelisted: false, // 👈 ¡CLAVE! Dejamos pasar datos extra de Meta sin lanzar error
+      // ✅ Limpieza: Elimina propiedades que no estén en los DTOs
+      whitelist: false,
+      
+      // ✅ Transformación: Convierte payloads JSON a instancias de clases DTO automáticamente
+      transform: true,
+      
+      // ⚠️ IMPORTANTE: Debe estar en FALSE. 
+      // Meta envía campos extra no documentados en sus webhooks. 
+      // Si esto está en 'true', NestJS rechazará los mensajes de WhatsApp con error 400.
+      forbidNonWhitelisted: false, 
     }),
   );
 
   // =================================================================
-  // 2. CONFIGURACIÓN DE CORS (PARA QUE TU FRONTEND PUEDA ENTRAR)
+  // 2. CONFIGURACIÓN DE CORS (PUENTE PARA EL FRONTEND REACT)
   // =================================================================
   app.enableCors({
-    origin: true, // Permite que React (localhost:5173) se conecte
+    // Permite cualquier origen en desarrollo (localhost:5173, etc.)
+    origin: true, 
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
     credentials: true,
   });
 
   // =================================================================
-  // 3. INICIO DEL SERVIDOR
+  // 3. ARRANQUE DEL SERVIDOR
   // =================================================================
   const port = process.env.PORT ?? 3000;
   
   await app.listen(port);
   
   logger.log(`🚀 Servidor Backend corriendo en: http://localhost:${port}`);
-  logger.log(`🔌 API lista para recibir peticiones (Webhooks abiertos)`);
+  logger.log(`🔓 CORS Habilitado: React ya puede enviar mensajes`);
+  logger.log(`📡 Webhooks Listos: Esperando eventos de Meta...`);
 }
 bootstrap();

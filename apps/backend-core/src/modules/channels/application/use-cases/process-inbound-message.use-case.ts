@@ -7,7 +7,7 @@ import type { MessageRepositoryPort } from '../../domain/ports/message.repositor
 export class ProcessInboundMessageUseCase {
   private readonly logger = new Logger(ProcessInboundMessageUseCase.name);
   // UUID temporal para el entorno de desarrollo MVP
-  private readonly MVP_DEV_TENANT_ID = '550e8400-e29b-41d4-a716-446655440000';
+  private readonly MVP_DEV_TENANT_ID = 'adbc0000-0000-4000-a000-000000000002';
 
   constructor(
     @Inject(MESSAGE_REPOSITORY_PORT)

@@ -1,7 +1,8 @@
 import { Entity, Column, PrimaryColumn, CreateDateColumn, UpdateDateColumn } from 'typeorm';
 import { UserRole } from '../../../domain/entities/user.entity';
 
-@Entity('users')
+// 🚨 CORRECCIÓN: Unificamos el esquema también para los usuarios
+@Entity({ name: 'users', schema: 'app_core' })
 export class UserOrmEntity {
   @PrimaryColumn('uuid')
   id: string;
