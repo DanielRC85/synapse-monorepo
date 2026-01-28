@@ -3,3 +3,4 @@ node_modules/
 infra/data/ 
 dist/ 
 .vscode/ 
+.vite/
