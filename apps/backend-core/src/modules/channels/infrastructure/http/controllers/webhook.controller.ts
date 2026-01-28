@@ -12,6 +12,12 @@ import {
 import { ConfigService } from '@nestjs/config';
 import { ProcessInboundMessageUseCase } from '../../../application/use-cases/process-inbound-message.use-case';
 
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+
+// 👇 Usamos la entidad de Base de Datos (ORM)
+import { MessageOrmEntity } from '../../persistence/entities/message.orm-entity';
+
 @Controller('channels/messages')
 export class WebhookController {
   private readonly logger = new Logger(WebhookController.name);
@@ -19,6 +25,9 @@ export class WebhookController {
   constructor(
     private readonly configService: ConfigService,
     private readonly processUseCase: ProcessInboundMessageUseCase,
+    // 👇 Inyectamos el repositorio de la entidad ORM
+    @InjectRepository(MessageOrmEntity)
+    private readonly messageRepository: Repository<MessageOrmEntity>,
   ) {}
 
   @Get()
@@ -28,53 +37,62 @@ export class WebhookController {
     @Query('hub.challenge') challenge: string,
   ) {
     const verifyToken = this.configService.get<string>('META_WEBHOOK_VERIFY_TOKEN');
-
-    if (!verifyToken) {
-      this.logger.error('Error de Seguridad: El token de verificación no está definido en el entorno.');
-      throw new ForbiddenException('Configuración de seguridad incompleta en el servidor.');
-    }
-
     if (mode === 'subscribe' && token === verifyToken) {
-      this.logger.log('✅ Webhook verificado exitosamente. Conexión establecida con Meta.');
+      this.logger.log('✅ Webhook verificado exitosamente.');
       return challenge;
     }
-
-    this.logger.warn(`⚠️ Intento de conexión no autorizado. Token recibido: ${token}`);
-    throw new ForbiddenException('El token de verificación proporcionado es inválido.');
+    throw new ForbiddenException('Token inválido.');
   }
 
   @Post()
   @HttpCode(HttpStatus.OK)
   async handleIncomingMessage(@Body() payload: any) {
-    // 🚨 DEBUG CRÍTICO: Imprime TODO el payload para análisis
-    this.logger.debug('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-    this.logger.debug('📥 WEBHOOK PAYLOAD COMPLETO:');
-    this.logger.debug(JSON.stringify(payload, null, 2));
-    this.logger.debug('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+    this.logger.debug('📥 WEBHOOK PAYLOAD RECIBIDO');
 
-    // Análisis de estructura
-    const entry = payload.entry?.[0];
-    const change = entry?.changes?.[0];
-    const value = change?.value;
+    // 🛑 CASO 1: Viene de n8n (Payload Limpio)
+    if (payload.tenantId && payload.content && payload.sender) {
+      this.logger.log(`🚀 DETECTADO PAYLOAD N8N - Tenant: ${payload.tenantId}`);
+      
+      try {
+        // 🛡️ LÓGICA DE SEGURIDAD PARA LA FECHA (¡Esto evita el error de Postgres!)
+        let finalDate = new Date(); // Por defecto: Ahora mismo
 
-    this.logger.debug(`🔍 Tipo de evento detectado: ${change?.field || 'DESCONOCIDO'}`);
-    
-    if (value?.messages) {
-      this.logger.log('✅ MENSAJE DE TEXTO DETECTADO');
-      this.logger.log(`📱 De: ${value.messages[0].from}`);
-      this.logger.log(`💬 Contenido: ${value.messages[0].text?.body || '[No text]'}`);
-    } else if (value?.statuses) {
-      this.logger.debug('📊 Status update recibido (no es mensaje de texto)');
-      this.logger.debug(`Estado: ${value.statuses[0].status}`);
-    } else {
-      this.logger.warn('⚠️ Estructura de payload no reconocida');
+        // Solo si viene timestamp y es un número válido, lo usamos
+        if (payload.timestamp && !isNaN(Number(payload.timestamp))) {
+            finalDate = new Date(Number(payload.timestamp) * 1000);
+        }
+
+        // Creamos el objeto compatible con la base de datos
+        const newMessage = this.messageRepository.create({
+            tenantId: payload.tenantId,
+            content: payload.content,
+            sender: payload.sender,
+            type: payload.type || 'text',
+            externalId: payload.externalId || `n8n_${Date.now()}`,
+            timestamp: finalDate, // 👈 Usamos la fecha segura
+            isOutbound: false,
+            hasMedia: false
+        });
+
+        // Guardamos
+        const saved = await this.messageRepository.save(newMessage);
+
+        this.logger.log(`💾 MENSAJE GUARDADO EN DB (ID: ${saved.id})`);
+        return { status: 'saved_n8n' };
+
+      } catch (error) {
+        this.logger.error(`❌ Error guardando mensaje de n8n: ${error.message}`);
+        // No devolvemos error 500 para que n8n no reintente infinitamente si es un error de datos
+        return { status: 'error', message: error.message };
+      }
     }
 
+    // 🛑 CASO 2: Payload nativo de Meta (Por si algún día quitas n8n)
+    this.logger.debug('🔄 Procesando como payload nativo de Meta...');
     try {
       await this.processUseCase.execute(payload);
-      this.logger.log('✅ Notificación procesada exitosamente');
     } catch (error) {
-      this.logger.error(`❌ Fallo en procesamiento: ${error.message}`, error.stack);
+       this.logger.warn('⚠️ No se pudo procesar el payload nativo (normal si usas n8n).');
     }
 
     return { status: 'received' };

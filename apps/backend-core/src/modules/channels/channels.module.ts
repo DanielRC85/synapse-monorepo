@@ -9,14 +9,17 @@ import { MetaWhatsAppAdapter } from './infrastructure/messaging/meta-whatsapp.ad
 import { WebhookController } from './infrastructure/http/controllers/webhook.controller';
 import { MessageController } from './infrastructure/http/controllers/message.controller';
 
+// --- DOMINIO (ENTIDADES) ---
+import { Message } from './domain/entities/message.entity'; // 👈 1. IMPORTAR ESTO NUEVO
+
 // --- PUERTOS (INTERFACES) ---
 import { MESSAGE_REPOSITORY_PORT } from './domain/ports/message.repository.port';
 import { OUTBOUND_MESSAGING_PORT } from './domain/ports/outbound-messaging.port';
 
-// --- CASOS DE USO (AQUÍ FALTABA UNO) ---
+// --- CASOS DE USO ---
 import { ProcessInboundMessageUseCase } from './application/use-cases/process-inbound-message.use-case';
 import { SendMessageUseCase } from './application/use-cases/send-message.use-case';
-import { GetTenantMessagesUseCase } from './application/use-cases/get-tenant-messages.use-case'; // 👈 1. FALTABA IMPORTAR ESTE
+import { GetTenantMessagesUseCase } from './application/use-cases/get-tenant-messages.use-case';
 
 // --- MÓDULOS EXTERNOS ---
 import { IamModule } from '../iam/iam.module';
@@ -24,8 +27,12 @@ import { IamModule } from '../iam/iam.module';
 @Module({
   imports: [
     HttpModule,
-    TypeOrmModule.forFeature([MessageOrmEntity]),
-    IamModule, // Necesario para AuthGuard
+    // 👇 2. AGREGAR 'Message' AQUI PARA QUE EL CONTROLLER PUEDA GUARDAR DIRECTO
+    TypeOrmModule.forFeature([
+      MessageOrmEntity, 
+      Message 
+    ]),
+    IamModule, 
   ],
   controllers: [
     WebhookController, 
@@ -35,7 +42,7 @@ import { IamModule } from '../iam/iam.module';
     // Casos de Uso
     ProcessInboundMessageUseCase,
     SendMessageUseCase,
-    GetTenantMessagesUseCase, // 👈 2. FALTABA AGREGARLO AQUÍ (Por esto explotaba)
+    GetTenantMessagesUseCase,
 
     // Inyecciones de Dependencias
     {

@@ -1,11 +1,11 @@
-import { Entity, Column, PrimaryColumn, Index } from 'typeorm';
+import { Entity, Column, PrimaryGeneratedColumn, CreateDateColumn, Index } from 'typeorm';
 import { MessageType } from '../../../domain/entities/message.entity';
 
-// 🚨 CORRECCIÓN: Forzamos el esquema 'app_core' para coincidir con Prisma y .env
 @Entity({ name: 'messages', schema: 'app_core' }) 
 @Index(['tenantId', 'externalId'], { unique: true })
 export class MessageOrmEntity {
-  @PrimaryColumn('uuid')
+  // 👇 CAMBIO 1: Usamos PrimaryGeneratedColumn para que la DB cree el UUID sola
+  @PrimaryGeneratedColumn('uuid')
   id: string;
 
   @Column()
@@ -14,18 +14,25 @@ export class MessageOrmEntity {
   @Column({ type: 'text' })
   content: string;
 
-  @Column({ type: 'enum', enum: MessageType })
+  @Column({ type: 'enum', enum: MessageType, default: MessageType.TEXT })
   type: MessageType;
 
   @Column({ type: 'timestamp' })
   timestamp: Date;
 
-  @Column()
+  @Column({ name: 'external_id' }) // Es buena práctica mapear a snake_case en DB
   externalId: string;
 
-  @Column('uuid')
+  @Column({ name: 'tenant_id', type: 'uuid' }) // Mapeamos a tenant_id
   tenantId: string;
 
-  @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+  // 👇 CAMBIO 2: Agregamos las columnas que faltaban (y causaban el error rojo)
+  @Column({ name: 'is_outbound', default: false })
+  isOutbound: boolean;
+
+  @Column({ name: 'has_media', default: false })
+  hasMedia: boolean;
+
+  @CreateDateColumn({ name: 'created_at' })
   createdAt: Date;
 }
