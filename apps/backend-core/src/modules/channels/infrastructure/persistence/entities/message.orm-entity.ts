@@ -10,7 +10,7 @@ export class MessageOrmEntity {
   @Column()
   sender: string;
 
-  // 👇 LA COLUMNA CRÍTICA QUE FALTABA
+
   @Column({ nullable: true }) 
   recipient: string; 
 

@@ -5,6 +5,9 @@ import { useAuthStore } from './stores/auth.store';
 import { useChat } from './hooks/useChat';
 import { ChatList } from './components/domain/chat/ChatList';
 
+// 👇 VOLVEMOS A PONER ESTO PARA QUE TENGAS EL CHAT SIEMPRE DISPONIBLE
+const MY_PERMANENT_NUMBER = '573185914450'; 
+
 function App() {
   const { token, setAuth, logout, user } = useAuthStore();
 
@@ -22,18 +25,16 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // 1. AGRUPAR CHATS (DINÁMICO)
+  // 1. AGRUPAR CHATS
   const activeChats = useMemo(() => {
     const chatSet = new Set<string>();
     
+    // 🛡️ SALVAVIDAS: Agregamos tu número SIEMPRE para que puedas iniciar la charla
+    chatSet.add(MY_PERMANENT_NUMBER);
+
     if (messages) {
       messages.forEach(m => {
-        // Obtenemos el ID de conversación calculado por el backend
-        // Usamos 'as any' para evitar conflictos de tipos en el frontend
         const convId = (m as any).conversationId || m.sender;
-
-        // Filtramos basura: Solo agregamos si parece un número válido (> 5 dígitos)
-        // y no es una palabra reservada del sistema
         if (convId && convId !== 'me' && convId !== 'client' && convId !== 'SISTEMA' && convId.length > 5) {
             chatSet.add(convId);
         }
@@ -43,10 +44,10 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
     return Array.from(chatSet);
   }, [messages]);
 
-  // Autoseleccionar el primer chat si existe
+  // Autoseleccionar tu número al cargar
   useEffect(() => {
-    if (!selectedChat && activeChats.length > 0) {
-      setSelectedChat(activeChats[0]);
+    if (!selectedChat) {
+      setSelectedChat(MY_PERMANENT_NUMBER);
     }
   }, [activeChats, selectedChat]);
 
@@ -98,14 +99,8 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
         </div>
         
         <div className="p-4 flex-1 overflow-y-auto">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Chats Activos</h3>
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Chats</h3>
           <nav className="space-y-1">
-            {activeChats.length === 0 && (
-                <div className="text-slate-500 text-xs px-4 py-4 text-center border border-slate-800 rounded-lg border-dashed">
-                   Esperando mensajes... <br/>
-                   <span className="text-[10px] opacity-70">Envía un WhatsApp a tu bot para iniciar</span>
-                </div>
-            )}
             {activeChats.map(number => (
               <button 
                 key={number}
@@ -142,7 +137,7 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
             </button>
             <div>
               <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                {selectedChat ? `Conversación: ${selectedChat}` : 'Selecciona un chat'}
+                {selectedChat ? `Chat con ${selectedChat}` : 'Selecciona un chat'}
               </h1>
               <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs text-gray-400 font-mono hidden sm:inline">Tenant: {tenantId.slice(0, 8)}...</span>
@@ -168,7 +163,7 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
                 onKeyDown={handleKeyPress}
                 disabled={isSending || !selectedChat}
                 autoFocus
-                placeholder={selectedChat ? "Escribe un mensaje..." : "Selecciona un chat para empezar"} 
+                placeholder={selectedChat ? "Escribe un mensaje..." : "Cargando chat..."} 
                 className="flex-1 px-4 py-3 rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm disabled:opacity-50"
               />
               <button 
