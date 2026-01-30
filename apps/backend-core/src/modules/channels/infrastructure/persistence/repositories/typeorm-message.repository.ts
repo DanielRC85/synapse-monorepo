@@ -1,9 +1,13 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
+
+// 👇 CORRECCIÓN DE RUTAS: Solo subimos 3 niveles para llegar a 'domain'
 import { Message } from '../../../domain/entities/message.entity';
-import { MessageRepositoryPort } from '../../../domain/ports/message.repository.port';
+// 👇 CORRECCIÓN DE NOMBRE: Usamos el nombre exacto que tienes en tu puerto
+import { MessageRepositoryPort } from '../../../domain/ports/message.repository.port'; 
 import { MessageOrmEntity } from '../entities/message.orm-entity';
+import { MessageMapper } from '../mappers/message.mapper';
 
 @Injectable()
 export class TypeOrmMessageRepository implements MessageRepositoryPort {
@@ -13,69 +17,50 @@ export class TypeOrmMessageRepository implements MessageRepositoryPort {
   ) {}
 
   /**
-   * 👇 MÉTODO MODIFICADO CON LOGS PARA VER LA VERDAD
+   * Guarda un mensaje en la base de datos usando el Mapper para no perder datos
    */
-  async save(message: Message): Promise<void> {
-    const ormEntity = this.toPersistence(message);
-
-    // 🕵️‍♂️ EL CHISMOSO: Esto imprimirá en tu terminal negra qué está pasando
-    console.log("\n==============================================");
-    console.log("🚨 [DEBUG] INTENTANDO GUARDAR EN BASE DE DATOS");
-    console.log("📩 Contenido:", ormEntity.content);
-    console.log("🔑 Tenant ID (Lo importante):", ormEntity.tenantId); 
-    console.log("==============================================\n");
-
-    await this.repository.save(ormEntity);
+  async create(message: Message): Promise<Message> {
+    // 1. Convertimos de Dominio -> Persistencia (Aquí se guarda el recipient)
+    const persistenceModel = MessageMapper.toPersistence(message);
     
-    console.log("✅ [DEBUG] ¡TypeORM dice que guardó sin errores!");
+    // 2. Guardamos en Postgres
+    const newEntity = await this.repository.save(persistenceModel);
+    
+    // 3. Devolvemos de Persistencia -> Dominio
+    return MessageMapper.toDomain(newEntity);
   }
 
   /**
-   * Busca por ID externo para validar idempotencia.
+   * Alias de 'create' para cumplir con la interfaz si pide 'save'
+   */
+  async save(message: Message): Promise<void> {
+    await this.create(message);
+  }
+
+  /**
+   * Busca por ID externo (útil para evitar duplicados de Meta)
    */
   async findByExternalId(externalId: string): Promise<Message | null> {
     const ormEntity = await this.repository.findOne({ where: { externalId } });
     if (!ormEntity) return null;
-    return this.toDomain(ormEntity);
+    return MessageMapper.toDomain(ormEntity);
   }
 
   /**
-   * Busca mensajes de un Tenant ordenados cronológicamente.
+   * Busca todos los mensajes de un Tenant ordenados por fecha
    */
-  async findByTenant(tenantId: string): Promise<Message[]> {
+  async findByTenantId(tenantId: string): Promise<Message[]> {
     const ormEntities = await this.repository.find({
       where: { tenantId },
-      order: { timestamp: 'ASC' }, 
+      order: { timestamp: 'ASC' },
     });
-
-    return ormEntities.map((entity) => this.toDomain(entity));
+    return ormEntities.map((entity) => MessageMapper.toDomain(entity));
   }
-
-  // --- PRIVATE MAPPERS (Data Mapper Pattern) ---
-
-  private toPersistence(domainEntity: Message): MessageOrmEntity {
-    const ormEntity = new MessageOrmEntity();
-    ormEntity.id = domainEntity.id;
-    ormEntity.sender = domainEntity.sender;
-    ormEntity.content = domainEntity.content;
-    ormEntity.type = domainEntity.type;
-    ormEntity.timestamp = domainEntity.timestamp;
-    ormEntity.externalId = domainEntity.externalId;
-    ormEntity.tenantId = domainEntity.tenantId;
-    return ormEntity;
-  }
-
-  private toDomain(ormEntity: MessageOrmEntity): Message {
-    return Message.create(
-      {
-        sender: ormEntity.sender,
-        content: ormEntity.content,
-        type: ormEntity.type,
-        timestamp: ormEntity.timestamp,
-        externalId: ormEntity.externalId,
-        tenantId: ormEntity.tenantId,
-      },
-      ormEntity.id,
-    );
+  
+  /**
+   * Alias por si tu interfaz usa 'findByTenant' en lugar de 'findByTenantId'
+   */
+  async findByTenant(tenantId: string): Promise<Message[]> {
+    return this.findByTenantId(tenantId);
   }
 }
