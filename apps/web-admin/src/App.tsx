@@ -1,12 +1,9 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { LayoutDashboard, LogOut, MessageSquare, Send, Phone, User, Menu } from 'lucide-react';
+import { LogOut, Send, Menu } from 'lucide-react'; // 🧹 Importaciones limpias
 
 import { useAuthStore } from './stores/auth.store';
 import { useChat } from './hooks/useChat';
 import { ChatList } from './components/domain/chat/ChatList';
-
-// 👇 TU NÚMERO REAL (Esto asegura que siempre puedas escribirte a ti mismo)
-const MY_NUMBER = '573185914450'; 
 
 function App() {
   const { token, setAuth, logout, user } = useAuthStore();
@@ -25,20 +22,18 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // 🧠 LÓGICA CORREGIDA:
-  // 1. Siempre incluimos TU número.
-  // 2. Filtramos para que NO aparezca "client" ni nada que no sea número.
+  // 1. AGRUPAR CHATS (DINÁMICO)
   const activeChats = useMemo(() => {
     const chatSet = new Set<string>();
     
-    // Primero agregamos tu número para que aparezca arriba
-    chatSet.add(MY_NUMBER);
-
     if (messages) {
       messages.forEach(m => {
-        // Solo agregamos si NO es "client" y parece un número (tiene más de 5 dígitos)
-        if (m.sender !== 'client' && m.sender.length > 5) {
-            chatSet.add(m.sender);
+        // Obtenemos el ID de conversación calculado por el backend
+        const convId = (m as any).conversationId || m.sender;
+
+        // Filtramos para asegurar que sean números reales
+        if (convId && convId !== 'me' && convId !== 'client' && convId !== 'SISTEMA' && convId.length > 5) {
+            chatSet.add(convId);
         }
       });
     }
@@ -46,18 +41,22 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
     return Array.from(chatSet);
   }, [messages]);
 
-  // Autoseleccionar tu número al inicio
+  // Autoseleccionar el primer chat
   useEffect(() => {
     if (!selectedChat && activeChats.length > 0) {
-      setSelectedChat(MY_NUMBER); // Forzamos selección de tu número
+      setSelectedChat(activeChats[0]);
     }
   }, [activeChats, selectedChat]);
 
-  // Filtrar mensajes del chat seleccionado
+  // 2. FILTRAR MENSAJES
   const filteredMessages = useMemo(() => {
     if (!selectedChat) return [];
     if (!messages) return [];
-    return messages.filter(m => m.sender === selectedChat);
+    
+    return messages.filter(m => {
+        const convId = (m as any).conversationId || m.sender;
+        return convId === selectedChat;
+    });
   }, [messages, selectedChat]);
 
   // --- Lógica de Envío ---
@@ -97,8 +96,11 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
         </div>
         
         <div className="p-4 flex-1 overflow-y-auto">
-          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Chats</h3>
+          <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Chats Activos</h3>
           <nav className="space-y-1">
+            {activeChats.length === 0 && (
+                <p className="text-slate-600 text-xs px-4">Esperando mensajes...</p>
+            )}
             {activeChats.map(number => (
               <button 
                 key={number}
@@ -109,7 +111,9 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
                     : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                 }`}
               >
-                <div className={`w-2 h-2 rounded-full flex-shrink-0 ${selectedChat === number ? 'bg-white' : 'bg-green-500'}`} />
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-xs ${selectedChat === number ? 'bg-white text-blue-600' : 'bg-slate-700 text-slate-300'}`}>
+                    {number.slice(-2)}
+                </div>
                 <span className="truncate">{number}</span>
               </button>
             ))}
@@ -133,7 +137,7 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
             </button>
             <div>
               <h1 className="text-xl font-bold text-gray-800 flex items-center gap-2">
-                {selectedChat ? `Chat con ${selectedChat}` : 'Selecciona un chat'}
+                {selectedChat ? `Conversación: ${selectedChat}` : 'Selecciona un chat'}
               </h1>
               <div className="flex items-center gap-2 mt-1">
                   <span className="text-xs text-gray-400 font-mono hidden sm:inline">Tenant: {tenantId.slice(0, 8)}...</span>
@@ -159,7 +163,7 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
                 onKeyDown={handleKeyPress}
                 disabled={isSending || !selectedChat}
                 autoFocus
-                placeholder={selectedChat ? "Escribe un mensaje..." : "Cargando chat..."} 
+                placeholder={selectedChat ? "Escribe un mensaje..." : "Selecciona un chat para empezar"} 
                 className="flex-1 px-4 py-3 rounded-lg border border-gray-300 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm shadow-sm disabled:opacity-50"
               />
               <button 
@@ -189,7 +193,7 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
   );
 }
 
-// LOGIN SCREEN
+// LOGIN SCREEN (SIN CAMBIOS)
 function LoginScreen({ onLoginSuccess }: { onLoginSuccess: (t: string, u: any) => void }) {
   const [email, setEmail] = useState('admin@synapse.com');
   const [password, setPassword] = useState('Password123!');
