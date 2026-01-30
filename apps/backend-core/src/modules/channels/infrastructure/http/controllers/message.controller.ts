@@ -41,7 +41,7 @@ export class MessageController {
     return { success: true, data: result };
   }
 
-  // 2. OBTENER HISTORIAL (CORREGIDO PARA TYPE SCRIPT)
+  // 2. OBTENER HISTORIAL (LÓGICA UNIFICADA)
   @Get(':tenantId')
   @UseGuards(AuthGuard)
   async getMessages(@Param('tenantId') tenantId: string) {
@@ -51,12 +51,11 @@ export class MessageController {
       // Normalizamos quién envió el mensaje
       const isMine = msg.sender === 'ME' || msg.sender === 'SISTEMA'; 
 
-      // 🛠️ HOTFIX TYPE SCRIPT:
-      // Usamos 'as any' para que TypeScript no se queje de la propiedad recipient
-      // (Sabemos que existe en la BD aunque la entidad antigua no la tenga declarada)
+      // 🛠️ SEGURIDAD DE TIPOS: Usamos 'as any' temporalmente para asegurar 
+      // que lea la propiedad 'recipient' de la base de datos sin errores de compilación.
       const messageData = msg as any;
 
-      // 🧠 LÓGICA MAESTRA DE UNIFICACIÓN: 
+      // 🧠 CÁLCULO DE CONVERSACIÓN:
       const conversationId = isMine 
           ? (messageData.recipient || 'SISTEMA_ORPHAN') 
           : msg.sender;
@@ -65,10 +64,10 @@ export class MessageController {
         id: msg.id,
         content: msg.content, 
         
-        // Enviamos el ID real de la conversación
+        // Enviamos el ID calculado para agrupar
         conversationId: conversationId,
 
-        // Para visualización
+        // Para visualización: 'me' o el número real
         sender: isMine ? 'me' : conversationId, 
         
         direction: isMine ? 'outbound' : 'inbound',

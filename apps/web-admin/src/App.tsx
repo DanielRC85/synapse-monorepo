@@ -22,17 +22,18 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // 1. AGRUPAR CHATS (DINÁMICO - SIN HARDCODE)
+  // 1. AGRUPAR CHATS (DINÁMICO)
   const activeChats = useMemo(() => {
     const chatSet = new Set<string>();
     
     if (messages) {
       messages.forEach(m => {
         // Obtenemos el ID de conversación calculado por el backend
+        // Usamos 'as any' para evitar conflictos de tipos en el frontend
         const convId = (m as any).conversationId || m.sender;
 
-        // Filtramos para asegurar que sean números reales (más de 5 dígitos)
-        // y eliminamos basura como 'me', 'client', 'SISTEMA'
+        // Filtramos basura: Solo agregamos si parece un número válido (> 5 dígitos)
+        // y no es una palabra reservada del sistema
         if (convId && convId !== 'me' && convId !== 'client' && convId !== 'SISTEMA' && convId.length > 5) {
             chatSet.add(convId);
         }
@@ -197,7 +198,7 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
   );
 }
 
-// LOGIN SCREEN (SIN CAMBIOS)
+// LOGIN SCREEN
 function LoginScreen({ onLoginSuccess }: { onLoginSuccess: (t: string, u: any) => void }) {
   const [email, setEmail] = useState('admin@synapse.com');
   const [password, setPassword] = useState('Password123!');
