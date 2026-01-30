@@ -52,11 +52,11 @@ export class MessageController {
       const isMine = msg.sender === 'ME' || msg.sender === 'SISTEMA'; 
 
       // 🛠️ HOTFIX TYPE SCRIPT:
-      // Accedemos a recipient usando 'as any' porque la entidad de dominio
-      // podría no tener la propiedad tipada aún, aunque la BD sí la tiene.
+      // Usamos 'as any' para que TypeScript no se queje de la propiedad recipient
+      // (Sabemos que existe en la BD aunque la entidad antigua no la tenga declarada)
       const messageData = msg as any;
 
-      // 🧠 LÓGICA MAESTRA: 
+      // 🧠 LÓGICA MAESTRA DE UNIFICACIÓN: 
       const conversationId = isMine 
           ? (messageData.recipient || 'SISTEMA_ORPHAN') 
           : msg.sender;

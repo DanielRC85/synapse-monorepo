@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useEffect } from 'react';
-import { LogOut, Send, Menu } from 'lucide-react'; // 🧹 Importaciones limpias
+import { LogOut, Send, Menu } from 'lucide-react';
 
 import { useAuthStore } from './stores/auth.store';
 import { useChat } from './hooks/useChat';
@@ -22,7 +22,7 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
   const [selectedChat, setSelectedChat] = useState<string | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
-  // 1. AGRUPAR CHATS (DINÁMICO)
+  // 1. AGRUPAR CHATS (DINÁMICO - SIN HARDCODE)
   const activeChats = useMemo(() => {
     const chatSet = new Set<string>();
     
@@ -31,7 +31,8 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
         // Obtenemos el ID de conversación calculado por el backend
         const convId = (m as any).conversationId || m.sender;
 
-        // Filtramos para asegurar que sean números reales
+        // Filtramos para asegurar que sean números reales (más de 5 dígitos)
+        // y eliminamos basura como 'me', 'client', 'SISTEMA'
         if (convId && convId !== 'me' && convId !== 'client' && convId !== 'SISTEMA' && convId.length > 5) {
             chatSet.add(convId);
         }
@@ -41,7 +42,7 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
     return Array.from(chatSet);
   }, [messages]);
 
-  // Autoseleccionar el primer chat
+  // Autoseleccionar el primer chat si existe
   useEffect(() => {
     if (!selectedChat && activeChats.length > 0) {
       setSelectedChat(activeChats[0]);
@@ -99,7 +100,10 @@ function DashboardContent({ tenantId, onLogout }: { tenantId: string, onLogout: 
           <h3 className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Chats Activos</h3>
           <nav className="space-y-1">
             {activeChats.length === 0 && (
-                <p className="text-slate-600 text-xs px-4">Esperando mensajes...</p>
+                <div className="text-slate-500 text-xs px-4 py-4 text-center border border-slate-800 rounded-lg border-dashed">
+                   Esperando mensajes... <br/>
+                   <span className="text-[10px] opacity-70">Envía un WhatsApp a tu bot para iniciar</span>
+                </div>
             )}
             {activeChats.map(number => (
               <button 
