@@ -10,12 +10,15 @@ export enum MessageType {
 }
 
 export interface MessageProps {
-  sender: string;     // E.164
+  sender: string;     // E.164 (Quién envía)
+  recipient?: string; // 👈 NUEVO: Para saber a quién se le envió (vital para tu fix)
   content: string;
   type: MessageType;
   timestamp: Date;
   externalId: string; // Vital para idempotencia
   tenantId: string;   // Vital para seguridad de datos
+  isOutbound?: boolean; // 👈 NUEVO: true = Enviado por nosotros, false = Recibido
+  hasMedia?: boolean;   // 👈 NUEVO: Para persistencia rápida
 }
 
 export class Message extends AggregateRoot<MessageProps> {
@@ -31,7 +34,6 @@ export class Message extends AggregateRoot<MessageProps> {
    */
   public static create(props: MessageProps, id?: string): Message {
     // 1. VALIDACIONES DE DOMINIO (Fail Fast)
-    // No permitimos que exista un mensaje sin dueño (tenant) o sin ID externo.
     if (!props.tenantId) {
       throw new Error('Message requires a tenantId');
     }
@@ -42,13 +44,15 @@ export class Message extends AggregateRoot<MessageProps> {
     // 2. CREACIÓN
     const message = new Message({
       ...props,
-      // Si llega sin fecha, asumimos "ahora" (defensive programming)
-      timestamp: props.timestamp || new Date(), 
+      // Valores por defecto defensivos
+      timestamp: props.timestamp || new Date(),
+      isOutbound: props.isOutbound ?? false, // Si no se especifica, asumimos entrante
+      hasMedia: props.hasMedia ?? [MessageType.IMAGE, MessageType.AUDIO, MessageType.DOCUMENT].includes(props.type),
     }, id);
 
-    // 3. EVENTO DE DOMINIO (La magia del Event-Driven)
-    // Solo disparamos el evento si es un mensaje NUEVO (sin ID previo)
-    if (!id) {
+    // 3. EVENTO DE DOMINIO (Solo si es nuevo y ENTRANTE)
+    // No queremos disparar "message_received" si es uno que nosotros enviamos
+    if (!id && !message.isOutbound) {
       message.addDomainEvent({
         eventName: 'channels.message_received',
         payload: {
@@ -63,22 +67,21 @@ export class Message extends AggregateRoot<MessageProps> {
     return message;
   }
 
-  // --- 🧠 MÉTODOS DE NEGOCIO (Comportamiento, no solo datos) ---
+  // --- 🧠 MÉTODOS DE NEGOCIO ---
 
-  /**
-   * Determina si el mensaje contiene archivos adjuntos.
-   * Útil para decidir si descargar el archivo de WhatsApp o no.
-   */
-  public hasMedia(): boolean {
-    return [MessageType.IMAGE, MessageType.AUDIO, MessageType.DOCUMENT].includes(this.props.type);
+  public isIncoming(): boolean {
+    return !this.props.isOutbound;
   }
 
   // --- 🔒 GETTERS (Inmutabilidad) ---
   
   get sender(): string { return this.props.sender; }
+  get recipient(): string | undefined { return this.props.recipient; } // 👈 Getter nuevo
   get content(): string { return this.props.content; }
   get type(): MessageType { return this.props.type; }
   get timestamp(): Date { return this.props.timestamp; }
   get externalId(): string { return this.props.externalId; }
   get tenantId(): string { return this.props.tenantId; }
+  get isOutbound(): boolean { return this.props.isOutbound || false; } // 👈 Getter nuevo
+  get hasMedia(): boolean { return this.props.hasMedia || false; }     // 👈 Getter nuevo
 }

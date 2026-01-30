@@ -18,24 +18,28 @@ export class SendMessageUseCase {
   ) {}
 
   async execute(dto: SendMessageDto): Promise<void> {
-    // 1. Comunicación con el Proveedor Externo (Puerto de Salida)
+    // 1. Comunicación con el Proveedor Externo
     const response = await this.messagingAdapter.send({
-      recipient: dto.recipient,
+      recipient: dto.recipient, // Asegúrate de que tu DTO tenga este campo (o 'to')
       content: dto.content,
       type: 'text',
     });
 
-    // 2. Registro en el Historial Interno tras confirmación del proveedor
+    // 2. Registro en el Historial Interno
+    // AQUÍ ESTABA EL HUECO: Faltaba guardar el recipient y marcar isOutbound
     const message = Message.create({
-      sender: 'SISTEMA', 
+      sender: 'ME', // Usamos 'ME' para que el Frontend sepa que fui yo (burbuja derecha)
+      recipient: dto.recipient, // 👈 LA CURA: Guardamos a quién se lo enviamos
       content: dto.content,
       type: MessageType.TEXT,
       timestamp: new Date(),
-      externalId: response.providerMessageId, // ID retornado por la API de Meta
+      externalId: response.providerMessageId,
       tenantId: dto.tenantId,
+      isOutbound: true, // 👈 IMPORTANTE: Marca que salió de nosotros
+      hasMedia: false
     });
 
     await this.messageRepository.save(message);
-    this.logger.log(`Mensaje de salida registrado: ${response.providerMessageId}`);
+    this.logger.log(`✅ Mensaje saliente guardado para: ${dto.recipient}`);
   }
 }
