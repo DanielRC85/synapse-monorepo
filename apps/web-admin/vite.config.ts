@@ -12,20 +12,28 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': { // Asegúrate de que tu Frontend llame a /api/...
-        target: 'http://127.0.0.1:3000', // <--- ¡AQUÍ ESTÁ EL CAMBIO! (Antes decía localhost)
+      // Regla 1: Todo lo que empiece por /api se va a Railway
+      '/api': { 
+        target: 'https://backend-core-production-ff8d.up.railway.app',
         changeOrigin: true,
         secure: false,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
-      // ⚠️ TRUCO ADICIONAL: Si tu frontend llama directo a /channels (sin /api), agrega esto:
-      '/channels': {
-        target: 'http://127.0.0.1:3000',
+      // Regla 2: Login y Registro (/iam) se va a Railway
+      '/iam': {
+        target: 'https://backend-core-production-ff8d.up.railway.app',
         changeOrigin: true,
         secure: false,
       },
+      // Regla 3: Canales y Mensajes (/channels) se va a Railway
+      '/channels': {
+        target: 'https://backend-core-production-ff8d.up.railway.app',
+        changeOrigin: true,
+        secure: false,
+      },
+      // Regla 4: Webhooks (por seguridad)
       '/webhook': {
-         target: 'http://127.0.0.1:3000',
+         target: 'https://backend-core-production-ff8d.up.railway.app',
          changeOrigin: true,
          secure: false,
       }
