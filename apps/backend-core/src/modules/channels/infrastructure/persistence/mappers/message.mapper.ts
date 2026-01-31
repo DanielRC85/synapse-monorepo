@@ -5,7 +5,7 @@ export class MessageMapper {
   static toDomain(ormEntity: MessageOrmEntity): Message {
     return Message.create({
       sender: ormEntity.sender,
-      // Como ahora ormEntity.recipient puede ser null, esto funciona perfecto:
+      // 👇 Esta línea conecta el dato de la BD con la nueva propiedad pública
       recipient: ormEntity.recipient || undefined, 
       content: ormEntity.content,
       type: ormEntity.type as MessageType,
@@ -21,8 +21,7 @@ export class MessageMapper {
     const ormEntity = new MessageOrmEntity();
     ormEntity.id = domainEntity.id;
     ormEntity.sender = domainEntity.sender;
-    // 👇 Aquí estaba el error rojo. Con el cambio de arriba, YA NO FALLARÁ.
-    ormEntity.recipient = domainEntity.recipient || null; 
+    ormEntity.recipient = domainEntity.recipient || null;
     ormEntity.content = domainEntity.content;
     ormEntity.type = domainEntity.type;
     ormEntity.timestamp = domainEntity.timestamp;

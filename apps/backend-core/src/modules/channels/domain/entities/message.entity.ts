@@ -1,6 +1,5 @@
 import { AggregateRoot } from '../../../../shared/domain/types/aggregate-root.base';
 
-// Enums estrictos para evitar "magic strings"
 export enum MessageType {
   TEXT = 'text',
   IMAGE = 'image',
@@ -10,48 +9,55 @@ export enum MessageType {
 }
 
 export interface MessageProps {
-  sender: string;     // E.164 (Quién envía)
-  recipient?: string; // 👈 NUEVO: Para saber a quién se le envió (vital para tu fix)
+  sender: string;
+  recipient?: string;
   content: string;
   type: MessageType;
   timestamp: Date;
-  externalId: string; // Vital para idempotencia
-  tenantId: string;   // Vital para seguridad de datos
-  isOutbound?: boolean; // 👈 NUEVO: true = Enviado por nosotros, false = Recibido
-  hasMedia?: boolean;   // 👈 NUEVO: Para persistencia rápida
+  externalId: string;
+  tenantId: string;
+  isOutbound?: boolean;
+  hasMedia?: boolean;
 }
 
 export class Message extends AggregateRoot<MessageProps> {
-  
-  // Constructor privado: Solo el Factory Method estático puede crear instancias.
+  // 👇 CAMBIO CRÍTICO: Propiedades PÚBLICAS. 
+  // Ya no usamos "getters" ocultos. El dato está a la vista siempre.
+  public readonly sender: string;
+  public readonly recipient?: string;
+  public readonly content: string;
+  public readonly type: MessageType;
+  public readonly timestamp: Date;
+  public readonly externalId: string;
+  public readonly tenantId: string;
+  public readonly isOutbound: boolean;
+  public readonly hasMedia: boolean;
+
   private constructor(props: MessageProps, id?: string) {
     super(props, id);
+    // Asignación directa para garantizar visibilidad
+    this.sender = props.sender;
+    this.recipient = props.recipient;
+    this.content = props.content;
+    this.type = props.type;
+    this.timestamp = props.timestamp || new Date();
+    this.externalId = props.externalId;
+    this.tenantId = props.tenantId;
+    this.isOutbound = props.isOutbound ?? false;
+    this.hasMedia = props.hasMedia ?? false;
   }
 
-  /**
-   * 🏭 FACTORY METHOD
-   * Crea una instancia válida y dispara el evento de "Mensaje Recibido".
-   */
   public static create(props: MessageProps, id?: string): Message {
-    // 1. VALIDACIONES DE DOMINIO (Fail Fast)
-    if (!props.tenantId) {
-      throw new Error('Message requires a tenantId');
-    }
-    if (!props.externalId) {
-      throw new Error('Message requires an externalId for idempotency');
-    }
+    if (!props.tenantId) throw new Error('Message requires a tenantId');
+    if (!props.externalId) throw new Error('Message requires an externalId');
 
-    // 2. CREACIÓN
     const message = new Message({
       ...props,
-      // Valores por defecto defensivos
       timestamp: props.timestamp || new Date(),
-      isOutbound: props.isOutbound ?? false, // Si no se especifica, asumimos entrante
+      isOutbound: props.isOutbound ?? false,
       hasMedia: props.hasMedia ?? [MessageType.IMAGE, MessageType.AUDIO, MessageType.DOCUMENT].includes(props.type),
     }, id);
 
-    // 3. EVENTO DE DOMINIO (Solo si es nuevo y ENTRANTE)
-    // No queremos disparar "message_received" si es uno que nosotros enviamos
     if (!id && !message.isOutbound) {
       message.addDomainEvent({
         eventName: 'channels.message_received',
@@ -67,21 +73,7 @@ export class Message extends AggregateRoot<MessageProps> {
     return message;
   }
 
-  // --- 🧠 MÉTODOS DE NEGOCIO ---
-
   public isIncoming(): boolean {
-    return !this.props.isOutbound;
+    return !this.isOutbound;
   }
-
-  // --- 🔒 GETTERS (Inmutabilidad) ---
-  
-  get sender(): string { return this.props.sender; }
-  get recipient(): string | undefined { return this.props.recipient; } // 👈 Getter nuevo
-  get content(): string { return this.props.content; }
-  get type(): MessageType { return this.props.type; }
-  get timestamp(): Date { return this.props.timestamp; }
-  get externalId(): string { return this.props.externalId; }
-  get tenantId(): string { return this.props.tenantId; }
-  get isOutbound(): boolean { return this.props.isOutbound || false; } // 👈 Getter nuevo
-  get hasMedia(): boolean { return this.props.hasMedia || false; }     // 👈 Getter nuevo
 }
