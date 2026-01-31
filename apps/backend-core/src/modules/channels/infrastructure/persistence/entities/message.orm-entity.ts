@@ -10,10 +10,10 @@ export class MessageOrmEntity {
   @Column()
   sender: string;
 
-  // 👇👇👇 ¡ESTA ES LA LÍNEA MÁGICA! 👇👇👇
-  // Tienes que poner "string | null". Si solo dice "string", TypeScript explota.
-  @Column({ nullable: true })
-  recipient: string | null; 
+  // 🔥 AQUÍ ESTÁ EL ARREGLO:
+  // Le decimos explícitamente a la BD: "Oye, esto es 'text', no inventes cosas raras"
+  @Column({ type: 'text', nullable: true }) 
+  recipient: string | null;
 
   @Column({ type: 'text' })
   content: string;
